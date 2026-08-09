@@ -91,6 +91,9 @@ func (p *Publisher) PublishUpdate(ctx context.Context, event updates.UpdateEvent
 	if err := updates.ValidateEvent(event); err != nil {
 		return err
 	}
+	if strings.TrimSpace(event.EventBase().AgentID) == "" {
+		return fmt.Errorf("origens connector: agentId is required")
+	}
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("origens connector: encode event: %w", err)

@@ -271,7 +271,7 @@ func (r *Relay) snapshotDue(state *previewState) bool {
 }
 
 func (r *Relay) baseEvent(kind EventType, id string) BaseEvent {
-	return BaseEvent{ProtocolVersion: ProtocolVersion, Type: kind, EventID: id, StreamID: r.options.StreamID, OccurredAt: r.now().UnixMilli()}
+	return BaseEvent{ProtocolVersion: ProtocolVersion, Type: kind, EventID: id, StreamID: r.options.StreamID, AgentID: r.options.AgentID, OccurredAt: r.now().UnixMilli()}
 }
 
 func (r *Relay) enabled() bool {

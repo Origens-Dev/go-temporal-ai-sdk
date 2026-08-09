@@ -307,7 +307,7 @@ func EndStream(ctx workflow.Context, streamID string, outcome updates.StreamOutc
 	if len(activityOptions) > 0 {
 		ao = activityOptions[0]
 	}
-	event := updates.NewStreamEndEvent(streamID, outcome, errorText, workflow.Now(ctx).UnixMilli())
+	event := updates.NewAgentStreamEndEvent(streamID, ao.AgentID, outcome, errorText, workflow.Now(ctx).UnixMilli())
 	ctx = workflow.WithActivityOptions(ctx, recordActivityOptions(ao))
 	return workflow.ExecuteActivity(ctx, activities.EndStreamActivity, activities.EndStreamArgs{Event: event}).Get(ctx, nil)
 }

@@ -97,7 +97,11 @@ type BaseEvent struct {
 	EventID         string    `json:"eventId"`
 	Cursor          string    `json:"cursor,omitempty"`
 	StreamID        string    `json:"streamId"`
-	OccurredAt      int64     `json:"occurredAt"`
+	// AgentID is the compiler-owned agent definition that produced this event.
+	// Connectors that cross a platform boundary can validate it against the
+	// deployment manifest bound to the worker slot.
+	AgentID    string `json:"agentId,omitempty"`
+	OccurredAt int64  `json:"occurredAt"`
 }
 
 type PreviewRef struct {
