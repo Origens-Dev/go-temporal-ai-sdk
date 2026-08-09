@@ -4,6 +4,8 @@
 
 - Aligned the Origens connector's default event envelope with the hosted
   broker's 64 KiB admission bound so oversized review updates fail locally.
+- Preserved agent and conversation identity on canonical record and terminal
+  events, including the root durable-agent completion path.
 
 ## 0.1.0-alpha.5 - 2026-08-09
 

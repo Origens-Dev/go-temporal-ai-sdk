@@ -287,7 +287,8 @@ func TestWriteRecordAndEndStreamWorkflowHelpers(t *testing.T) {
 	if len(records) != 1 || records[0].Event.AcceptedAttemptID != "attempt-1" || records[0].Event.Record.UpdatedAt == 0 {
 		t.Fatalf("records = %#v", records)
 	}
-	if len(terminals) != 1 || terminals[0].Event.Outcome != updates.StreamOutcomeCompleted {
+	if len(terminals) != 1 || terminals[0].Event.Outcome != updates.StreamOutcomeCompleted ||
+		terminals[0].Event.AgentID != "agent-1" || terminals[0].Event.ConversationID != "conversation-1" {
 		t.Fatalf("terminals = %#v", terminals)
 	}
 }
@@ -305,7 +306,9 @@ func testWriteRecordWorkflow(ctx workflow.Context) error {
 	if err := WriteRecord(ctx, "stream-1", record, "attempt-1"); err != nil {
 		return err
 	}
-	return EndStream(ctx, "stream-1", updates.StreamOutcomeCompleted, "")
+	return EndStream(ctx, "stream-1", updates.StreamOutcomeCompleted, "", ActivityOptions{
+		AgentID: "agent-1", ConversationID: "conversation-1",
+	})
 }
 
 func testGenerateObjectWorkflow(ctx workflow.Context) (string, error) {

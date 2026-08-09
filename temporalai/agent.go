@@ -114,7 +114,7 @@ func AgentWorkflow(ctx workflow.Context, input AgentInput) (*AgentResult, error)
 		}
 	}
 	terminalCtx, _ := workflow.NewDisconnectedContext(ctx)
-	if terminalErr := EndStream(terminalCtx, streamID, outcome, errorText); terminalErr != nil && err == nil {
+	if terminalErr := EndStream(terminalCtx, streamID, outcome, errorText, agentActivityOptions(input)...); terminalErr != nil && err == nil {
 		return result, terminalErr
 	}
 	return result, err
@@ -150,6 +150,7 @@ func durableRecordsEnabled(ctx workflow.Context) bool {
 }
 
 func RunAgent(ctx workflow.Context, input AgentInput, activityOptions ...ActivityOptions) (*AgentResult, error) {
+	activityOptions = agentActivityOptions(input, activityOptions...)
 	writeRecords := durableRecordsEnabled(ctx)
 	if err := publishSubagentProgress(ctx, input, SubagentSnapshot{Status: SubagentStatusRunning, Sequence: 1}, writeRecords, activityOptions...); err != nil {
 		return nil, err
@@ -552,6 +553,7 @@ func aoFromActivityOptions(activityOptions ...ActivityOptions) ActivityOptions {
 func agentActivityOptions(input AgentInput, activityOptions ...ActivityOptions) []ActivityOptions {
 	options := aoFromActivityOptions(activityOptions...)
 	options.AgentID = input.AgentID
+	options.ConversationID = input.Stream.ConversationID
 	options.CompiledRevision = input.CompiledRevision
 	if input.DefaultModelBoundary != "" && input.DefaultModelBoundary != activities.ToolExecutionBoundaryAuto {
 		options.LanguageModelBoundary = input.DefaultModelBoundary
