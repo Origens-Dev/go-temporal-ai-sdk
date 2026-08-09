@@ -255,6 +255,18 @@ func TestInvokeActivityOptionsDefaultSummaries(t *testing.T) {
 	}
 }
 
+func TestRemoteActivityDefaultsHeartbeatButRecordDoesNot(t *testing.T) {
+	if got := languageModelActivityOptions(ActivityOptions{}).HeartbeatTimeout; got != 30*time.Second {
+		t.Fatalf("model heartbeat timeout = %s", got)
+	}
+	if got := toolActivityOptions(ActivityOptions{}).HeartbeatTimeout; got != 30*time.Second {
+		t.Fatalf("tool heartbeat timeout = %s", got)
+	}
+	if got := recordActivityOptions(ActivityOptions{}).HeartbeatTimeout; got != 0 {
+		t.Fatalf("record heartbeat timeout = %s", got)
+	}
+}
+
 func TestWriteRecordAndEndStreamWorkflowHelpers(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()

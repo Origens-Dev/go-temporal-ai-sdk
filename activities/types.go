@@ -82,7 +82,10 @@ type InvokeEmbeddingModelArgs struct {
 type InvokeEmbeddingModelResult = ai.EmbeddingModelResult
 
 type ToolDefinition struct {
-	Name              string                `json:"name"`
+	Name string `json:"name"`
+	// TaskQueue is the fully resolved Temporal activity queue. It is ignored
+	// when ExecutionBoundary selects a local activity.
+	TaskQueue         string                `json:"taskQueue,omitempty"`
 	Title             string                `json:"title,omitempty"`
 	Description       string                `json:"description,omitempty"`
 	InputSchema       any                   `json:"inputSchema,omitempty"`

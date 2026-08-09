@@ -124,6 +124,8 @@ func ModelToolsFromDefinitions(definitions []ToolDefinition, choice ai.ToolChoic
 }
 
 func (a *Activities) InvokeTool(ctx context.Context, args InvokeToolArgs) (*InvokeToolResult, error) {
+	stopHeartbeat := startRemoteHeartbeat(ctx, InvokeToolActivity)
+	defer stopHeartbeat()
 	if args.ToolCallID == "" {
 		return nil, fmt.Errorf("toolCallId is required")
 	}

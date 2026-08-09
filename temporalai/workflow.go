@@ -25,7 +25,11 @@ type ActivityOptions struct {
 }
 
 func defaultActivityOptions(summary string) workflow.ActivityOptions {
-	return workflow.ActivityOptions{StartToCloseTimeout: 10 * time.Minute, Summary: summary}
+	return workflow.ActivityOptions{
+		StartToCloseTimeout: 10 * time.Minute,
+		HeartbeatTimeout:    30 * time.Second,
+		Summary:             summary,
+	}
 }
 
 func languageModelActivityOptions(options ActivityOptions) workflow.ActivityOptions {
@@ -40,6 +44,10 @@ func streamObjectActivityOptions(options ActivityOptions) workflow.ActivityOptio
 	return mergeActivityOptions(defaultActivityOptions(activities.StreamObjectActivity), mergeActivityOptions(options.Default, options.LanguageModel))
 }
 
+func localStreamObjectActivityOptions(options ActivityOptions) workflow.LocalActivityOptions {
+	return mergeLocalActivityOptions(defaultLocalLanguageModelActivityOptions(), options.LocalLanguageModel)
+}
+
 func embeddingModelActivityOptions(options ActivityOptions) workflow.ActivityOptions {
 	return mergeActivityOptions(defaultActivityOptions(activities.InvokeEmbeddingModelActivity), mergeActivityOptions(options.Default, options.EmbeddingModel))
 }
@@ -50,6 +58,10 @@ func toolActivityOptions(options ActivityOptions) workflow.ActivityOptions {
 
 func streamModelActivityOptions(options ActivityOptions) workflow.ActivityOptions {
 	return mergeActivityOptions(defaultActivityOptions(activities.InvokeModelStreamActivity), mergeActivityOptions(options.Default, options.LanguageModel))
+}
+
+func localStreamModelActivityOptions(options ActivityOptions) workflow.LocalActivityOptions {
+	return mergeLocalActivityOptions(defaultLocalLanguageModelActivityOptions(), options.LocalLanguageModel)
 }
 
 func defaultLocalLanguageModelActivityOptions() workflow.LocalActivityOptions {
@@ -85,7 +97,8 @@ func localToolActivityOptions(options ActivityOptions) workflow.LocalActivityOpt
 }
 
 func recordActivityOptions(options ActivityOptions) workflow.ActivityOptions {
-	return mergeActivityOptions(defaultActivityOptions(activities.WriteRecordActivity), mergeActivityOptions(options.Default, options.Record))
+	base := workflow.ActivityOptions{StartToCloseTimeout: time.Minute, Summary: activities.WriteRecordActivity}
+	return mergeActivityOptions(base, mergeActivityOptions(options.Default, options.Record))
 }
 
 func InvokeModel(ctx workflow.Context, modelID string, options ai.LanguageModelCallOptions, activityOptions ...ActivityOptions) (*ai.LanguageModelGenerateResult, error) {
@@ -147,14 +160,21 @@ func StreamObject(ctx workflow.Context, modelID string, options ai.StreamObjectO
 	if len(activityOptions) > 0 {
 		ao = activityOptions[0]
 	}
-	ctx = workflow.WithActivityOptions(ctx, streamObjectActivityOptions(ao))
 	var wireResult activities.StreamObjectResult
-	err := workflow.ExecuteActivity(ctx, activities.StreamObjectActivity, activities.StreamObjectArgs{
+	args := activities.StreamObjectArgs{
 		AgentID:          ao.AgentID,
 		CompiledRevision: ao.CompiledRevision,
 		ModelID:          modelID,
 		Options:          activities.StreamObjectOptionsFromAI(options),
-	}).Get(ctx, &wireResult)
+	}
+	var err error
+	if ao.LanguageModelBoundary == activities.ToolExecutionBoundaryLocalActivity {
+		ctx = workflow.WithLocalActivityOptions(ctx, localStreamObjectActivityOptions(ao))
+		err = workflow.ExecuteLocalActivity(ctx, activities.StreamObjectActivity, args).Get(ctx, &wireResult)
+	} else {
+		ctx = workflow.WithActivityOptions(ctx, streamObjectActivityOptions(ao))
+		err = workflow.ExecuteActivity(ctx, activities.StreamObjectActivity, args).Get(ctx, &wireResult)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -167,14 +187,21 @@ func InvokeModelStream(ctx workflow.Context, modelID string, options ai.Language
 	if len(activityOptions) > 0 {
 		ao = activityOptions[0]
 	}
-	ctx = workflow.WithActivityOptions(ctx, streamModelActivityOptions(ao))
 	var wireResult activities.InvokeModelStreamResult
-	err := workflow.ExecuteActivity(ctx, activities.InvokeModelStreamActivity, activities.InvokeModelStreamArgs{
+	args := activities.InvokeModelStreamArgs{
 		AgentID:          ao.AgentID,
 		CompiledRevision: ao.CompiledRevision,
 		ModelID:          modelID,
 		Options:          activities.LanguageModelCallOptionsFromAI(options),
-	}).Get(ctx, &wireResult)
+	}
+	var err error
+	if ao.LanguageModelBoundary == activities.ToolExecutionBoundaryLocalActivity {
+		ctx = workflow.WithLocalActivityOptions(ctx, localStreamModelActivityOptions(ao))
+		err = workflow.ExecuteLocalActivity(ctx, activities.InvokeModelStreamActivity, args).Get(ctx, &wireResult)
+	} else {
+		ctx = workflow.WithActivityOptions(ctx, streamModelActivityOptions(ao))
+		err = workflow.ExecuteActivity(ctx, activities.InvokeModelStreamActivity, args).Get(ctx, &wireResult)
+	}
 	if err != nil {
 		return nil, err
 	}
