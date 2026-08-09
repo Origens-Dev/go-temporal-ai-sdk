@@ -97,6 +97,9 @@ type BaseEvent struct {
 	EventID         string    `json:"eventId"`
 	Cursor          string    `json:"cursor,omitempty"`
 	StreamID        string    `json:"streamId"`
+	// ConversationID is the durable session identity shared by one or more
+	// execution streams. It remains optional for generic SDK consumers.
+	ConversationID string `json:"conversationId,omitempty"`
 	// AgentID is the compiler-owned agent definition that produced this event.
 	// Connectors that cross a platform boundary can validate it against the
 	// deployment manifest bound to the worker slot.

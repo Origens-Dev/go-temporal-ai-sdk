@@ -27,6 +27,7 @@ const (
 type Options struct {
 	Visible                 bool          `json:"visible,omitempty"`
 	StreamID                string        `json:"streamId,omitempty"`
+	ConversationID          string        `json:"conversationId,omitempty"`
 	TargetRecordID          string        `json:"targetRecordId,omitempty"`
 	Lane                    Lane          `json:"lane,omitempty"`
 	AttemptID               string        `json:"attemptId,omitempty"`
@@ -271,7 +272,11 @@ func (r *Relay) snapshotDue(state *previewState) bool {
 }
 
 func (r *Relay) baseEvent(kind EventType, id string) BaseEvent {
-	return BaseEvent{ProtocolVersion: ProtocolVersion, Type: kind, EventID: id, StreamID: r.options.StreamID, AgentID: r.options.AgentID, OccurredAt: r.now().UnixMilli()}
+	return BaseEvent{
+		ProtocolVersion: ProtocolVersion, Type: kind, EventID: id,
+		StreamID: r.options.StreamID, ConversationID: r.options.ConversationID,
+		AgentID: r.options.AgentID, OccurredAt: r.now().UnixMilli(),
+	}
 }
 
 func (r *Relay) enabled() bool {
