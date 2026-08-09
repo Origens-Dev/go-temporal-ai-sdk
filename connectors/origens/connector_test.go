@@ -135,6 +135,33 @@ func TestDirectPreviewPublicationStillReportsTransportFailure(t *testing.T) {
 	}
 }
 
+func TestConnectorPreviewChunkFailureDoesNotRetryProviderWork(t *testing.T) {
+	socket, closeServer := serveUnix(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer closeServer()
+	var observed error
+	connector := New(Options{
+		Durable: &durableStore{}, SocketPath: socket, Timeout: time.Second,
+		OnPublicationFailure: func(_ context.Context, _ updates.UpdateEvent, err error) { observed = err },
+	})
+	event := updates.PreviewChunkEvent{
+		BaseEvent: updates.BaseEvent{
+			ProtocolVersion: updates.ProtocolVersion, Type: updates.EventTypePreviewChunk,
+			EventID: "e1", StreamID: "execution-1", ConversationID: "conversation-1",
+			AgentID: "agent-1", CompiledRevision: "revision-1", OccurredAt: 1,
+		},
+		PreviewRef: updates.PreviewRef{AttemptID: "a1", TargetRecordID: "m1", Lane: updates.LaneText, Sequence: 1},
+		Chunk:      map[string]any{"textDelta": "hello"},
+	}
+	if err := connector.PublishUpdate(context.Background(), event); err != nil {
+		t.Fatalf("preview publication failure escaped: %v", err)
+	}
+	if observed == nil {
+		t.Fatal("preview publication failure was not reported")
+	}
+}
+
 func TestPublisherRequiresAgentIdentity(t *testing.T) {
 	publisher := NewPublisher(filepath.Join(t.TempDir(), "missing.sock"), 50*time.Millisecond, 0)
 	event := updates.NewStreamEndEvent("stream-1", updates.StreamOutcomeCompleted, "", 1)

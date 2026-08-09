@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Made hosted provisional preview publication best-effort. A live-stream
+  outage is reported through `OnPublicationFailure` without retrying an
+  already completed provider call.
+
 - Aligned the Origens connector's default event envelope with the hosted
   broker's 64 KiB admission bound so oversized review updates fail locally.
 - Preserved agent and conversation identity on canonical record and terminal
