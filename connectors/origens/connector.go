@@ -46,15 +46,36 @@ type Options struct {
 
 // Connector implements updates.Connector. Durable operations commit first;
 // broker publication failures after that commit are reported through the
-// callback and never escape as retryable activity failures.
-type Connector struct{ *updates.CompositeConnector }
+// callback and never escape as retryable activity failures. Provisional live
+// chunks are best-effort for the same reason: a stream outage must not rerun an
+// already completed provider call merely because the canonical record has not
+// been accepted yet.
+type Connector struct {
+	*updates.CompositeConnector
+	onPublicationFailure func(context.Context, updates.UpdateEvent, error)
+}
 
 func New(options Options) *Connector {
 	publisher := NewPublisher(options.SocketPath, options.Timeout, options.MaxEventBytes)
 	return &Connector{CompositeConnector: updates.NewCompositeConnector(updates.CompositeOptions{
 		PreviewStore: options.Durable, RecordStore: options.Durable, LivePublisher: publisher,
 		OnPublicationFailure: options.OnPublicationFailure,
-	})}
+	}), onPublicationFailure: options.OnPublicationFailure}
+}
+
+// PublishUpdate is the provisional chunk path. Composite durable methods have
+// already committed before they publish and perform the same failure handling
+// internally; direct chunks need this explicit best-effort boundary.
+func (c *Connector) PublishUpdate(ctx context.Context, event updates.UpdateEvent) error {
+	if c == nil || c.CompositeConnector == nil {
+		return nil
+	}
+	if err := c.CompositeConnector.PublishUpdate(ctx, event); err != nil {
+		if c.onPublicationFailure != nil {
+			c.onPublicationFailure(ctx, event, err)
+		}
+	}
+	return nil
 }
 
 // Publisher sends one validated protocol-v2 update to the local platform
