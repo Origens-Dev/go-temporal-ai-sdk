@@ -298,6 +298,7 @@ func WriteRecord(ctx workflow.Context, streamID string, record updates.WorkflowR
 		event.AgentID = ao.AgentID
 	}
 	event.ConversationID = ao.ConversationID
+	event.CompiledRevision = ao.CompiledRevision
 	ctx = workflow.WithActivityOptions(ctx, recordActivityOptions(ao))
 	return workflow.ExecuteActivity(ctx, activities.WriteRecordActivity, activities.WriteRecordArgs{Event: event}).Get(ctx, nil)
 }
@@ -314,6 +315,7 @@ func EndStream(ctx workflow.Context, streamID string, outcome updates.StreamOutc
 	}
 	event := updates.NewAgentStreamEndEvent(streamID, ao.AgentID, outcome, errorText, workflow.Now(ctx).UnixMilli())
 	event.ConversationID = ao.ConversationID
+	event.CompiledRevision = ao.CompiledRevision
 	ctx = workflow.WithActivityOptions(ctx, recordActivityOptions(ao))
 	return workflow.ExecuteActivity(ctx, activities.EndStreamActivity, activities.EndStreamArgs{Event: event}).Get(ctx, nil)
 }

@@ -168,7 +168,7 @@ func TestRelayKeepsAttemptsSeparateAndReturnsExactReceipts(t *testing.T) {
 func TestRelayCarriesAgentAndConversationIdentity(t *testing.T) {
 	connector := &memoryConnector{}
 	relay := NewRelayWithClock(connector, Options{
-		Visible: true, StreamID: "run-1", ConversationID: "conversation-1",
+		Visible: true, StreamID: "run-1", ConversationID: "conversation-1", CompiledRevision: "revision-1",
 		Scope: Scope{AgentID: "support"}, AttemptID: "attempt-1", TargetRecordID: "message:1",
 	}, func() time.Time { return time.UnixMilli(1000) })
 	if err := relay.Accept(context.Background(), ai.StreamPart{Type: "stream-start"}); err != nil {
@@ -178,7 +178,7 @@ func TestRelayCarriesAgentAndConversationIdentity(t *testing.T) {
 		t.Fatalf("begins = %d", len(connector.begins))
 	}
 	base := connector.begins[0].EventBase()
-	if base.StreamID != "run-1" || base.ConversationID != "conversation-1" || base.AgentID != "support" {
+	if base.StreamID != "run-1" || base.ConversationID != "conversation-1" || base.AgentID != "support" || base.CompiledRevision != "revision-1" {
 		t.Fatalf("base = %+v", base)
 	}
 }
