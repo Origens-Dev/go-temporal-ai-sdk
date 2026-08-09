@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.5 - 2026-08-09
+
+- Carry the durable conversation/session ID independently from the execution
+  stream ID on hosted review events, allowing one conversation to contain
+  multiple reviewable runs without overloading either identity.
+
 ## 0.1.0-alpha.4 - 2026-08-09
 
 - Carry the compiler-owned agent ID on every hosted review event, including

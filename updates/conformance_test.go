@@ -165,6 +165,24 @@ func TestRelayKeepsAttemptsSeparateAndReturnsExactReceipts(t *testing.T) {
 	}
 }
 
+func TestRelayCarriesAgentAndConversationIdentity(t *testing.T) {
+	connector := &memoryConnector{}
+	relay := NewRelayWithClock(connector, Options{
+		Visible: true, StreamID: "run-1", ConversationID: "conversation-1",
+		Scope: Scope{AgentID: "support"}, AttemptID: "attempt-1", TargetRecordID: "message:1",
+	}, func() time.Time { return time.UnixMilli(1000) })
+	if err := relay.Accept(context.Background(), ai.StreamPart{Type: "stream-start"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(connector.begins) != 1 {
+		t.Fatalf("begins = %d", len(connector.begins))
+	}
+	base := connector.begins[0].EventBase()
+	if base.StreamID != "run-1" || base.ConversationID != "conversation-1" || base.AgentID != "support" {
+		t.Fatalf("base = %+v", base)
+	}
+}
+
 func TestCompositePersistsBeforePublishing(t *testing.T) {
 	store := &orderedStore{}
 	publisher := &orderedPublisher{order: &store.order}
