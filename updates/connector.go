@@ -24,19 +24,24 @@ type Connector interface {
 }
 
 type CompositeOptions struct {
-	PreviewStore  PreviewStore
-	RecordStore   RecordStore
-	LivePublisher LivePublisher
+	PreviewStore         PreviewStore
+	RecordStore          RecordStore
+	LivePublisher        LivePublisher
+	OnPublicationFailure func(context.Context, UpdateEvent, error)
 }
 
 type CompositeConnector struct {
-	previews  PreviewStore
-	records   RecordStore
-	publisher LivePublisher
+	previews             PreviewStore
+	records              RecordStore
+	publisher            LivePublisher
+	onPublicationFailure func(context.Context, UpdateEvent, error)
 }
 
 func NewCompositeConnector(options CompositeOptions) *CompositeConnector {
-	return &CompositeConnector{previews: options.PreviewStore, records: options.RecordStore, publisher: options.LivePublisher}
+	return &CompositeConnector{
+		previews: options.PreviewStore, records: options.RecordStore, publisher: options.LivePublisher,
+		onPublicationFailure: options.OnPublicationFailure,
+	}
 }
 
 func (c *CompositeConnector) BeginPreview(ctx context.Context, event PreviewBeginEvent) error {
@@ -44,6 +49,7 @@ func (c *CompositeConnector) BeginPreview(ctx context.Context, event PreviewBegi
 		if err := c.previews.BeginPreview(ctx, event); err != nil {
 			return err
 		}
+		return c.publishAfterCommit(ctx, event)
 	}
 	return c.PublishUpdate(ctx, event)
 }
@@ -53,6 +59,7 @@ func (c *CompositeConnector) CheckpointPreview(ctx context.Context, event Previe
 		if err := c.previews.CheckpointPreview(ctx, event); err != nil {
 			return err
 		}
+		return c.publishAfterCommit(ctx, event)
 	}
 	return c.PublishUpdate(ctx, event)
 }
@@ -62,6 +69,7 @@ func (c *CompositeConnector) EndPreview(ctx context.Context, event PreviewEndEve
 		if err := c.previews.EndPreview(ctx, event); err != nil {
 			return err
 		}
+		return c.publishAfterCommit(ctx, event)
 	}
 	return c.PublishUpdate(ctx, event)
 }
@@ -71,6 +79,7 @@ func (c *CompositeConnector) UpsertRecord(ctx context.Context, event RecordUpser
 		if err := c.records.UpsertRecord(ctx, event); err != nil {
 			return err
 		}
+		return c.publishAfterCommit(ctx, event)
 	}
 	return c.PublishUpdate(ctx, event)
 }
@@ -80,6 +89,7 @@ func (c *CompositeConnector) EndStream(ctx context.Context, event StreamEndEvent
 		if err := c.records.EndStream(ctx, event); err != nil {
 			return err
 		}
+		return c.publishAfterCommit(ctx, event)
 	}
 	return c.PublishUpdate(ctx, event)
 }
@@ -89,6 +99,19 @@ func (c *CompositeConnector) PublishUpdate(ctx context.Context, event UpdateEven
 		return nil
 	}
 	return c.publisher.PublishUpdate(ctx, event)
+}
+
+// publishAfterCommit deliberately does not return a live publication error.
+// The durable store has already committed, so surfacing the publisher error
+// could make an activity retry provider/tool work or a customer-owned write.
+// OnPublicationFailure is the explicit gap and health signal instead.
+func (c *CompositeConnector) publishAfterCommit(ctx context.Context, event UpdateEvent) error {
+	if err := c.PublishUpdate(ctx, event); err != nil {
+		if c != nil && c.onPublicationFailure != nil {
+			c.onPublicationFailure(ctx, event, err)
+		}
+	}
+	return nil
 }
 
 type NoopConnector struct{}

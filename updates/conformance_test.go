@@ -178,6 +178,34 @@ func TestCompositePersistsBeforePublishing(t *testing.T) {
 	}
 }
 
+func TestCompositeDoesNotRetryCommittedRecordForPublisherFailure(t *testing.T) {
+	want := errors.New("publisher unavailable")
+	store := &orderedStore{}
+	publisher := &orderedPublisher{order: &store.order, err: want}
+	var observed error
+	connector := NewCompositeConnector(CompositeOptions{
+		RecordStore: store, LivePublisher: publisher,
+		OnPublicationFailure: func(_ context.Context, _ UpdateEvent, err error) { observed = err },
+	})
+	event := NewRecordUpsertEvent("stream-1", WorkflowRecord{RecordID: "message:1", RecordVersion: 1, Kind: RecordKindMessage, Status: "completed", Data: map[string]any{"text": "hello"}, UpdatedAt: 1}, "attempt-1", 1)
+	if err := connector.UpsertRecord(context.Background(), event); err != nil {
+		t.Fatalf("publisher failure after durable commit must not escape: %v", err)
+	}
+	if !errors.Is(observed, want) || !reflect.DeepEqual(store.order, []string{"persist-record", "publish"}) {
+		t.Fatalf("observed=%v order=%v", observed, store.order)
+	}
+}
+
+func TestCompositeWithoutDurableStoreReturnsPublisherFailure(t *testing.T) {
+	want := errors.New("publisher unavailable")
+	publisher := &orderedPublisher{order: &[]string{}, err: want}
+	connector := NewCompositeConnector(CompositeOptions{LivePublisher: publisher})
+	event := NewRecordUpsertEvent("stream-1", WorkflowRecord{RecordID: "message:1", RecordVersion: 1, Kind: RecordKindMessage, Status: "completed", Data: map[string]any{}, UpdatedAt: 1}, "", 1)
+	if err := connector.UpsertRecord(context.Background(), event); !errors.Is(err, want) {
+		t.Fatalf("err = %v, want publisher failure", err)
+	}
+}
+
 func TestBestEffortDoesNotHideArbitraryPublisherFailures(t *testing.T) {
 	want := errors.New("publisher unavailable")
 	connector := &memoryConnector{publishErr: want}
@@ -237,9 +265,12 @@ func (s *orderedStore) EndStream(context.Context, StreamEndEvent) error {
 	return nil
 }
 
-type orderedPublisher struct{ order *[]string }
+type orderedPublisher struct {
+	order *[]string
+	err   error
+}
 
 func (p *orderedPublisher) PublishUpdate(context.Context, UpdateEvent) error {
 	*p.order = append(*p.order, "publish")
-	return nil
+	return p.err
 }

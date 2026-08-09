@@ -142,6 +142,25 @@ func TestToolExecutionBoundaryPrecedenceAndTimeoutFallbackDefault(t *testing.T) 
 	}
 }
 
+func TestAgentActivityOptionsApplyModelBoundaryAndToolQueue(t *testing.T) {
+	input := AgentInput{
+		DefaultModelBoundary: activities.ToolExecutionBoundaryLocalActivity,
+		Tools: []activities.ToolDefinition{
+			{Name: "lookup", TaskQueue: "support-tools__prod"},
+		},
+	}
+	options := agentActivityOptions(input)[0]
+	if options.LanguageModelBoundary != activities.ToolExecutionBoundaryLocalActivity {
+		t.Fatalf("model boundary = %q", options.LanguageModelBoundary)
+	}
+	if got := agentToolTaskQueue(input, "lookup"); got != "support-tools__prod" {
+		t.Fatalf("tool queue = %q", got)
+	}
+	if got := agentToolTaskQueue(input, "missing"); got != "" {
+		t.Fatalf("missing tool queue = %q", got)
+	}
+}
+
 func TestRunAgentWritesCanonicalMessageAndToolRecords(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()

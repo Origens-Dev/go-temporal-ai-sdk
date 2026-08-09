@@ -44,6 +44,7 @@ type AgentInput struct {
 	ToolContext              any                                 `json:"toolContext,omitempty"`
 	ToolExecution            string                              `json:"toolExecution,omitempty"`
 	ToolApproval             AgentToolApprovalOptions            `json:"toolApproval,omitempty"`
+	DefaultModelBoundary     activities.ToolExecutionBoundary    `json:"defaultModelBoundary,omitempty"`
 	DefaultToolBoundary      activities.ToolExecutionBoundary    `json:"defaultToolBoundary,omitempty"`
 	LocalToolTimeoutFallback LocalToolTimeoutFallback            `json:"localToolTimeoutFallback,omitempty"`
 	ToolArtifacts            activities.ToolArtifactPolicy       `json:"toolArtifacts,omitempty"`
@@ -424,7 +425,7 @@ func executeAgentToolFuture(ctx workflow.Context, input AgentInput, messages []a
 		toolCtx := workflow.WithLocalActivityOptions(ctx, localToolActivityOptions(options))
 		return workflow.ExecuteLocalActivity(toolCtx, activities.InvokeToolActivity, args), boundary
 	default:
-		return executeAgentToolActivityFuture(ctx, args, options), boundary
+		return executeAgentToolActivityFuture(ctx, input, args, options), boundary
 	}
 }
 
@@ -446,7 +447,7 @@ func agentToolResultFromFuture(ctx workflow.Context, input AgentInput, messages 
 				Approval:         approval,
 			}
 			var fallbackResult activities.InvokeToolResult
-			if fallbackErr := executeAgentToolActivityFuture(ctx, args, options).Get(ctx, &fallbackResult); fallbackErr != nil {
+			if fallbackErr := executeAgentToolActivityFuture(ctx, input, args, options).Get(ctx, &fallbackResult); fallbackErr != nil {
 				return nil, fallbackErr
 			}
 			return &fallbackResult, nil
@@ -456,7 +457,10 @@ func agentToolResultFromFuture(ctx workflow.Context, input AgentInput, messages 
 	return &result, nil
 }
 
-func executeAgentToolActivityFuture(ctx workflow.Context, args activities.InvokeToolArgs, options ActivityOptions) workflow.Future {
+func executeAgentToolActivityFuture(ctx workflow.Context, input AgentInput, args activities.InvokeToolArgs, options ActivityOptions) workflow.Future {
+	if queue := agentToolTaskQueue(input, args.ToolName); queue != "" {
+		options.Tool.TaskQueue = queue
+	}
 	toolCtx := workflow.WithActivityOptions(ctx, toolActivityOptions(options))
 	return workflow.ExecuteActivity(toolCtx, activities.InvokeToolActivity, args)
 }
@@ -549,7 +553,19 @@ func agentActivityOptions(input AgentInput, activityOptions ...ActivityOptions) 
 	options := aoFromActivityOptions(activityOptions...)
 	options.AgentID = input.AgentID
 	options.CompiledRevision = input.CompiledRevision
+	if input.DefaultModelBoundary != "" && input.DefaultModelBoundary != activities.ToolExecutionBoundaryAuto {
+		options.LanguageModelBoundary = input.DefaultModelBoundary
+	}
 	return []ActivityOptions{options}
+}
+
+func agentToolTaskQueue(input AgentInput, toolName string) string {
+	for _, tool := range input.Tools {
+		if tool.Name == toolName {
+			return tool.TaskQueue
+		}
+	}
+	return ""
 }
 
 func toolExecutionBoundary(input AgentInput, toolName string) activities.ToolExecutionBoundary {

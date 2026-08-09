@@ -44,6 +44,8 @@ func New(opts Options) *Activities {
 }
 
 func (a *Activities) InvokeModel(ctx context.Context, args InvokeModelArgs) (*InvokeModelResult, error) {
+	stopHeartbeat := startRemoteHeartbeat(ctx, InvokeModelActivity)
+	defer stopHeartbeat()
 	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
 	if err != nil {
 		return nil, err
@@ -80,6 +82,8 @@ func (a *Activities) InvokeModel(ctx context.Context, args InvokeModelArgs) (*In
 }
 
 func (a *Activities) GenerateObject(ctx context.Context, args GenerateObjectArgs) (*GenerateObjectResult, error) {
+	stopHeartbeat := startRemoteHeartbeat(ctx, GenerateObjectActivity)
+	defer stopHeartbeat()
 	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
 	if err != nil {
 		return nil, err
@@ -119,6 +123,8 @@ func (a *Activities) GenerateObject(ctx context.Context, args GenerateObjectArgs
 }
 
 func (a *Activities) StreamObject(ctx context.Context, args StreamObjectArgs) (*StreamObjectResult, error) {
+	stopHeartbeat := startRemoteHeartbeat(ctx, StreamObjectActivity)
+	defer stopHeartbeat()
 	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
 	if err != nil {
 		return nil, err
@@ -154,6 +160,8 @@ func (a *Activities) StreamObject(ctx context.Context, args StreamObjectArgs) (*
 }
 
 func (a *Activities) InvokeEmbeddingModel(ctx context.Context, args InvokeEmbeddingModelArgs) (*InvokeEmbeddingModelResult, error) {
+	stopHeartbeat := startRemoteHeartbeat(ctx, InvokeEmbeddingModelActivity)
+	defer stopHeartbeat()
 	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
 	if err != nil {
 		return nil, err
@@ -181,6 +189,8 @@ func (a *Activities) InvokeEmbeddingModel(ctx context.Context, args InvokeEmbedd
 }
 
 func (a *Activities) InvokeModelStream(ctx context.Context, args InvokeModelStreamArgs) (*InvokeModelStreamResult, error) {
+	stopHeartbeat := startRemoteHeartbeat(ctx, InvokeModelStreamActivity)
+	defer stopHeartbeat()
 	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
 	if err != nil {
 		return nil, err

@@ -16,9 +16,12 @@ Temporal-specific attempt, retry, acceptance, persistence, and replay boundary.
   preview/record/replay storage.
 - `connectors/redis-dynamodb`: Redis Pub/Sub or Streams live delivery with the
   same DynamoDB storage model.
+- `connectors/origens`: customer-owned durable storage plus hosted Origens live
+  and review delivery over a slot-bound Unix socket.
 
 The language-neutral frozen contract and fixtures live in [`protocol/v2`](protocol/v2/README.md).
 See [`docs/streaming.md`](docs/streaming.md) for runtime semantics and examples,
+[`docs/origens-connector.md`](docs/origens-connector.md) for the hosted connector,
 and [`docs/migration-v2.md`](docs/migration-v2.md) for the v0.3 to v0.4 API map.
 
 ## Provenance

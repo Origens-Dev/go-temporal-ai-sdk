@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.2 - 2026-08-09
+
+- Added fully resolved per-tool Temporal task queues and an agent-level model
+  execution boundary, including local model and object-stream activities for
+  realtime durable agents.
+- Added heartbeat defaults and worker-side heartbeat emission for long-running
+  remote model, embedding, object, stream, and tool activities.
+- Added `updates.CompositeConnector`, which commits customer-owned durable
+  preview and record state before best-effort live publication without turning
+  a post-commit stream failure into a retry of provider or tool work.
+- Added `connectors/origens`, combining a customer-provided durable store with
+  the hosted Origens agent-review publisher over a slot-bound Unix socket. The
+  publisher carries no customer identity or Valkey, S3, KMS, or catalog
+  credentials.
+
 ## 0.1.0-alpha.1 - 2026-08-09
 
 - Forked from `holbrookab/go-temporal-ai-sdk` `v0.4.0` at commit `5836767`
