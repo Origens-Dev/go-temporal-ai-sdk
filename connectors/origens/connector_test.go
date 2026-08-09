@@ -74,7 +74,8 @@ func serveUnix(t *testing.T, handler http.Handler) (string, func()) {
 func recordEvent() updates.RecordUpsertEvent {
 	return updates.NewRecordUpsertEvent("conversation-1", updates.WorkflowRecord{
 		RecordID: "message:1", RecordVersion: 1, Kind: updates.RecordKindMessage,
-		Status: "completed", Data: map[string]any{"text": "hello"}, UpdatedAt: 1,
+		Status: "completed", Data: map[string]any{"text": "hello"},
+		Scope: updates.Scope{AgentID: "agent-1"}, UpdatedAt: 1,
 	}, "attempt-1", 2)
 }
 
@@ -126,11 +127,19 @@ func TestCommittedRecordSurvivesBrokerFailureAndReportsGap(t *testing.T) {
 func TestDirectPreviewPublicationStillReportsTransportFailure(t *testing.T) {
 	publisher := NewPublisher(filepath.Join(t.TempDir(), "missing.sock"), 50*time.Millisecond, 0)
 	event := updates.PreviewBeginEvent{
-		BaseEvent:  updates.BaseEvent{ProtocolVersion: updates.ProtocolVersion, Type: updates.EventTypePreviewBegin, EventID: "e1", StreamID: "s1", OccurredAt: 1},
+		BaseEvent:  updates.BaseEvent{ProtocolVersion: updates.ProtocolVersion, Type: updates.EventTypePreviewBegin, EventID: "e1", StreamID: "s1", AgentID: "agent-1", OccurredAt: 1},
 		PreviewRef: updates.PreviewRef{AttemptID: "a1", TargetRecordID: "m1", Lane: updates.LaneText},
 	}
 	if err := publisher.PublishUpdate(context.Background(), event); err == nil || errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("expected socket transport error, got %v", err)
+	}
+}
+
+func TestPublisherRequiresAgentIdentity(t *testing.T) {
+	publisher := NewPublisher(filepath.Join(t.TempDir(), "missing.sock"), 50*time.Millisecond, 0)
+	event := updates.NewStreamEndEvent("stream-1", updates.StreamOutcomeCompleted, "", 1)
+	if err := publisher.PublishUpdate(context.Background(), event); err == nil || err.Error() != "origens connector: agentId is required" {
+		t.Fatalf("missing agent identity error = %v", err)
 	}
 }
 

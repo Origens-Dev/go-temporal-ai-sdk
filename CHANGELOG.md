@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.4 - 2026-08-09
+
+- Carry the compiler-owned agent ID on every hosted review event, including
+  terminal stream events, so the platform can validate it against the agent
+  definitions bound to the worker deployment.
+
 ## 0.1.0-alpha.3 - 2026-08-09
 
 - Use the existing slot-private host-report Unix socket for hosted agent-review
