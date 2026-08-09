@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 )
 
 func normalizeSchema(schema any) any {
@@ -130,7 +130,11 @@ func (a *Activities) InvokeTool(ctx context.Context, args InvokeToolArgs) (*Invo
 	if args.ToolName == "" {
 		return nil, fmt.Errorf("toolName is required")
 	}
-	tool, ok := a.tool(args.ToolName)
+	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
+	if err != nil {
+		return nil, err
+	}
+	tool, ok := runtime.tool(args.ToolName)
 	dynamic := ok && tool.Type == "dynamic"
 	metadata := ai.ProviderMetadata(nil)
 	toolMetadata := args.ToolMetadata
@@ -139,7 +143,7 @@ func (a *Activities) InvokeTool(ctx context.Context, args InvokeToolArgs) (*Invo
 		toolMetadata = mergeProviderMetadata(tool.ToolMetadata, args.ToolMetadata)
 	}
 	if !ok {
-		return a.finishToolResult(ctx, args, toolErrorResult(args, fmt.Errorf("tool %q is not registered", args.ToolName), nil, toolMetadata))
+		return finishToolResult(ctx, runtime, args, toolErrorResult(args, fmt.Errorf("tool %q is not registered", args.ToolName), nil, toolMetadata))
 	}
 	call := ai.ToolCall{
 		ToolCallID:       args.ToolCallID,
@@ -150,38 +154,38 @@ func (a *Activities) InvokeTool(ctx context.Context, args InvokeToolArgs) (*Invo
 		ProviderMetadata: metadata,
 	}
 	if err := ai.ValidateToolInput(tool, args.Input); err != nil {
-		return a.finishToolResult(ctx, args, toolErrorResult(args, err, call.ProviderMetadata, call.ToolMetadata))
+		return finishToolResult(ctx, runtime, args, toolErrorResult(args, err, call.ProviderMetadata, call.ToolMetadata))
 	}
 	if args.Approval != nil {
 		if args.Approval.Approved == nil || !*args.Approval.Approved {
-			return a.finishToolResult(ctx, args, deniedToolResult(args, call, args.Approval.Reason))
+			return finishToolResult(ctx, runtime, args, deniedToolResult(args, call, args.Approval.Reason))
 		}
 		if tool.NeedsApproval != nil {
 			decision, err := ai.ResolveToolApproval(ctx, map[string]ai.Tool{args.ToolName: tool}, call)
 			if err != nil {
-				return a.finishToolResult(ctx, args, toolErrorResult(args, err, call.ProviderMetadata, call.ToolMetadata))
+				return finishToolResult(ctx, runtime, args, toolErrorResult(args, err, call.ProviderMetadata, call.ToolMetadata))
 			}
 			if decision.Type == ai.ApprovalDecisionDenied {
-				return a.finishToolResult(ctx, args, deniedToolResult(args, call, decision.Reason))
+				return finishToolResult(ctx, runtime, args, deniedToolResult(args, call, decision.Reason))
 			}
 		}
 	} else if tool.RequiresApproval || tool.NeedsApproval != nil {
 		decision, err := ai.ResolveToolApproval(ctx, map[string]ai.Tool{args.ToolName: tool}, call)
 		if err != nil {
-			return a.finishToolResult(ctx, args, toolErrorResult(args, err, call.ProviderMetadata, call.ToolMetadata))
+			return finishToolResult(ctx, runtime, args, toolErrorResult(args, err, call.ProviderMetadata, call.ToolMetadata))
 		}
 		if ai.ApprovalBlocksToolExecution(decision) {
-			return a.finishToolResult(ctx, args, deniedToolResult(args, call, decision.Reason))
+			return finishToolResult(ctx, runtime, args, deniedToolResult(args, call, decision.Reason))
 		}
 	}
 	if tool.Execute == nil {
-		return a.finishToolResult(ctx, args, toolErrorResult(args, fmt.Errorf("tool %q has no execute function", args.ToolName), call.ProviderMetadata, call.ToolMetadata))
+		return finishToolResult(ctx, runtime, args, toolErrorResult(args, fmt.Errorf("tool %q has no execute function", args.ToolName), call.ProviderMetadata, call.ToolMetadata))
 	}
 	output, err := tool.Execute(ctx, call, ai.ToolExecutionOptions{
 		ToolCallID: args.ToolCallID,
 		Messages:   MessagesToAI(args.Messages),
 		Context:    contextWithScope(args.Context, args.Scope),
-		Sandbox:    a.sandbox,
+		Sandbox:    runtime.Sandbox,
 	})
 	isError := err != nil
 	modelOutputInput := output
@@ -196,7 +200,7 @@ func (a *Activities) InvokeTool(ctx context.Context, args InvokeToolArgs) (*Invo
 		isError = true
 		modelOutput = ai.ToolResultOutput{Type: "error-text", Value: modelErr.Error()}
 	}
-	return a.finishToolResult(ctx, args, &InvokeToolResult{
+	return finishToolResult(ctx, runtime, args, &InvokeToolResult{
 		ToolCallID:       args.ToolCallID,
 		ToolName:         args.ToolName,
 		Input:            args.Input,
@@ -309,16 +313,16 @@ func mergeProviderMetadata(base ai.ProviderMetadata, override ai.ProviderMetadat
 	return out
 }
 
-func (a *Activities) tool(name string) (ai.Tool, bool) {
-	if a == nil || len(a.tools) == 0 {
+func (r AgentRuntime) tool(name string) (ai.Tool, bool) {
+	if len(r.Tools) == 0 {
 		return ai.Tool{}, false
 	}
-	tool, ok := a.tools[name]
+	tool, ok := r.Tools[name]
 	return tool, ok
 }
 
-func (a *Activities) finishToolResult(ctx context.Context, args InvokeToolArgs, result *InvokeToolResult) (*InvokeToolResult, error) {
-	result, err := compactToolArtifacts(ctx, a.artifacts, args, result)
+func finishToolResult(ctx context.Context, runtime AgentRuntime, args InvokeToolArgs, result *InvokeToolResult) (*InvokeToolResult, error) {
+	result, err := compactToolArtifacts(ctx, runtime.ArtifactStore, args, result)
 	if err != nil {
 		return nil, err
 	}

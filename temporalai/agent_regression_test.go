@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/converter"

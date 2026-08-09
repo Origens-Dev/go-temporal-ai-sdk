@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -61,16 +62,23 @@ func requestToolApproval(ctx workflow.Context, request ToolApprovalRequest, writ
 			return nil, err
 		}
 	}
-	response := waitForToolApprovalResponse(ctx, request)
+	response, waitErr := waitForToolApprovalResponse(ctx, request)
 	if writeRecords && request.StreamID != "" {
-		if err := WriteRecord(ctx, request.StreamID, toolApprovalRecord(request, &response, 2), "", activityOptions...); err != nil {
+		recordCtx := ctx
+		if waitErr != nil && temporal.IsCanceledError(waitErr) {
+			recordCtx, _ = workflow.NewDisconnectedContext(ctx)
+		}
+		if err := WriteRecord(recordCtx, request.StreamID, toolApprovalRecord(request, &response, 2), "", activityOptions...); err != nil {
 			return nil, err
 		}
+	}
+	if waitErr != nil {
+		return nil, waitErr
 	}
 	return &response, nil
 }
 
-func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalRequest) ToolApprovalResponse {
+func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalRequest) (ToolApprovalResponse, error) {
 	signalName := request.SignalName
 	if signalName == "" {
 		signalName = ToolApprovalResponseSignalName(request.ApprovalID)
@@ -84,6 +92,10 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 			c.Receive(ctx, &response)
 			received = true
 		})
+		canceled := false
+		selector.AddReceive(ctx.Done(), func(workflow.ReceiveChannel, bool) {
+			canceled = true
+		})
 		timedOut := false
 		if request.Timeout > 0 {
 			timer := workflow.NewTimer(ctx, request.Timeout)
@@ -92,6 +104,15 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 			})
 		}
 		selector.Select(ctx)
+		if canceled {
+			return ToolApprovalResponse{
+				ApprovalID: request.ApprovalID,
+				ToolCallID: request.ToolCallID,
+				Approved:   false,
+				Reason:     "approval canceled",
+				Canceled:   true,
+			}, temporal.NewCanceledError("approval canceled")
+		}
 		if timedOut {
 			return ToolApprovalResponse{
 				ApprovalID: request.ApprovalID,
@@ -99,7 +120,7 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 				Approved:   false,
 				Reason:     "approval timed out",
 				TimedOut:   true,
-			}
+			}, nil
 		}
 		if !received || response.ApprovalID != request.ApprovalID {
 			continue
@@ -107,7 +128,7 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 		if response.ToolCallID == "" {
 			response.ToolCallID = request.ToolCallID
 		}
-		return response
+		return response, nil
 	}
 }
 

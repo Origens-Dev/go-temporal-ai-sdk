@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
 )
 
 type Connector struct {

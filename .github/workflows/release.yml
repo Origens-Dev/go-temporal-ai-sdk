@@ -33,8 +33,13 @@ jobs:
 
       - name: Validate release input
         env:
+          RELEASE_REF: ${{ github.ref }}
           VERSION: ${{ inputs.version }}
         run: |
+          if [[ "$RELEASE_REF" != "refs/heads/main" ]]; then
+            echo "releases must run from main, got $RELEASE_REF" >&2
+            exit 1
+          fi
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
             echo "version must be a semantic version without the v prefix" >&2
             exit 1
@@ -49,6 +54,9 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+
+      - name: Verify modules
+        run: go mod verify
 
       - name: Build release notes
         env:
@@ -93,7 +101,12 @@ jobs:
             echo "release $tag already exists"
             exit 0
           fi
-          gh release create "$tag" \
-            --verify-tag \
-            --title "$tag" \
+          release_args=(
+            --verify-tag
+            --title "$tag"
             --notes-file release-notes.md
+          )
+          if [[ "$VERSION" == *-* ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "$tag" "${release_args[@]}"

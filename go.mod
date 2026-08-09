@@ -1,17 +1,17 @@
-module github.com/holbrookab/go-temporal-ai-sdk
+module github.com/Origens-Dev/go-temporal-ai-sdk
 
 go 1.24.0
 
 toolchain go1.24.5
 
 require (
+	github.com/Origens-Dev/go-ai v0.1.0-alpha.1
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.39
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.3
-	github.com/holbrookab/go-ai v0.3.0
 	github.com/redis/go-redis/v9 v9.19.0
-	go.temporal.io/api v1.62.7
-	go.temporal.io/sdk v1.42.0
+	go.temporal.io/api v1.62.12
+	go.temporal.io/sdk v1.45.0
 )
 
 require (

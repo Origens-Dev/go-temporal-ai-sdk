@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
 	"github.com/redis/go-redis/v9"
 )
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"go.temporal.io/sdk/activity"
 )
 
@@ -16,14 +16,16 @@ type Options struct {
 	Tools           map[string]ai.Tool
 	ArtifactStore   ToolArtifactStore
 	Sandbox         ai.Sandbox
+	RuntimeResolver AgentRuntimeResolver
 }
 
 type Activities struct {
-	provider  ai.Provider
-	connector updates.Connector
-	tools     map[string]ai.Tool
-	artifacts ToolArtifactStore
-	sandbox   ai.Sandbox
+	provider        ai.Provider
+	connector       updates.Connector
+	tools           map[string]ai.Tool
+	artifacts       ToolArtifactStore
+	sandbox         ai.Sandbox
+	runtimeResolver AgentRuntimeResolver
 }
 
 func New(opts Options) *Activities {
@@ -32,16 +34,21 @@ func New(opts Options) *Activities {
 		connector = updates.NoopConnector{}
 	}
 	return &Activities{
-		provider:  opts.ModelProvider,
-		connector: connector,
-		tools:     opts.Tools,
-		artifacts: opts.ArtifactStore,
-		sandbox:   opts.Sandbox,
+		provider:        opts.ModelProvider,
+		connector:       connector,
+		tools:           opts.Tools,
+		artifacts:       opts.ArtifactStore,
+		sandbox:         opts.Sandbox,
+		runtimeResolver: opts.RuntimeResolver,
 	}
 }
 
 func (a *Activities) InvokeModel(ctx context.Context, args InvokeModelArgs) (*InvokeModelResult, error) {
-	model, err := a.languageModel(args.ModelID)
+	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
+	if err != nil {
+		return nil, err
+	}
+	model, err := runtime.languageModel(args.ModelID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +80,11 @@ func (a *Activities) InvokeModel(ctx context.Context, args InvokeModelArgs) (*In
 }
 
 func (a *Activities) GenerateObject(ctx context.Context, args GenerateObjectArgs) (*GenerateObjectResult, error) {
-	model, err := a.languageModel(args.ModelID)
+	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
+	if err != nil {
+		return nil, err
+	}
+	model, err := runtime.languageModel(args.ModelID)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +119,11 @@ func (a *Activities) GenerateObject(ctx context.Context, args GenerateObjectArgs
 }
 
 func (a *Activities) StreamObject(ctx context.Context, args StreamObjectArgs) (*StreamObjectResult, error) {
-	model, err := a.languageModel(args.ModelID)
+	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
+	if err != nil {
+		return nil, err
+	}
+	model, err := runtime.languageModel(args.ModelID)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +154,11 @@ func (a *Activities) StreamObject(ctx context.Context, args StreamObjectArgs) (*
 }
 
 func (a *Activities) InvokeEmbeddingModel(ctx context.Context, args InvokeEmbeddingModelArgs) (*InvokeEmbeddingModelResult, error) {
-	provider, ok := a.provider.(ai.EmbeddingProvider)
+	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
+	if err != nil {
+		return nil, err
+	}
+	provider, ok := runtime.ModelProvider.(ai.EmbeddingProvider)
 	if !ok {
 		return nil, errors.New("provider does not support embeddings")
 	}
@@ -162,7 +181,11 @@ func (a *Activities) InvokeEmbeddingModel(ctx context.Context, args InvokeEmbedd
 }
 
 func (a *Activities) InvokeModelStream(ctx context.Context, args InvokeModelStreamArgs) (*InvokeModelStreamResult, error) {
-	model, err := a.languageModel(args.ModelID)
+	runtime, err := a.resolveRuntime(ctx, runtimeScope(args.AgentID, args.CompiledRevision))
+	if err != nil {
+		return nil, err
+	}
+	model, err := runtime.languageModel(args.ModelID)
 	if err != nil {
 		return nil, err
 	}
@@ -281,17 +304,6 @@ func (a *Activities) EndStream(ctx context.Context, args EndStreamArgs) error {
 		return err
 	}
 	return a.connector.EndStream(ctx, args.Event)
-}
-
-func (a *Activities) languageModel(modelID string) (ai.LanguageModel, error) {
-	if a == nil || a.provider == nil {
-		return nil, errors.New("model provider is required")
-	}
-	model := a.provider.LanguageModel(modelID)
-	if model == nil {
-		return nil, fmt.Errorf("language model %q not found", modelID)
-	}
-	return model, nil
 }
 
 func withActivityAttempt(ctx context.Context, options updates.Options) updates.Options {

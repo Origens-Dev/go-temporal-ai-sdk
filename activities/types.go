@@ -1,8 +1,8 @@
 package activities
 
 import (
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 )
 
 const (
@@ -25,20 +25,26 @@ const (
 )
 
 type InvokeModelArgs struct {
-	ModelID string                   `json:"modelId"`
-	Options LanguageModelCallOptions `json:"options"`
+	AgentID          string                   `json:"agentId,omitempty"`
+	CompiledRevision string                   `json:"compiledRevision,omitempty"`
+	ModelID          string                   `json:"modelId"`
+	Options          LanguageModelCallOptions `json:"options"`
 }
 
 type InvokeModelResult = LanguageModelGenerateResult
 
 type GenerateObjectArgs struct {
-	ModelID string                `json:"modelId"`
-	Options GenerateObjectOptions `json:"options"`
+	AgentID          string                `json:"agentId,omitempty"`
+	CompiledRevision string                `json:"compiledRevision,omitempty"`
+	ModelID          string                `json:"modelId"`
+	Options          GenerateObjectOptions `json:"options"`
 }
 
 type StreamObjectArgs struct {
-	ModelID string              `json:"modelId"`
-	Options StreamObjectOptions `json:"options"`
+	AgentID          string              `json:"agentId,omitempty"`
+	CompiledRevision string              `json:"compiledRevision,omitempty"`
+	ModelID          string              `json:"modelId"`
+	Options          StreamObjectOptions `json:"options"`
 }
 
 type StreamObjectResult struct {
@@ -50,8 +56,10 @@ type StreamObjectResult struct {
 }
 
 type InvokeModelStreamArgs struct {
-	ModelID string                   `json:"modelId"`
-	Options LanguageModelCallOptions `json:"options"`
+	AgentID          string                   `json:"agentId,omitempty"`
+	CompiledRevision string                   `json:"compiledRevision,omitempty"`
+	ModelID          string                   `json:"modelId"`
+	Options          LanguageModelCallOptions `json:"options"`
 }
 
 type InvokeModelStreamResult struct {
@@ -63,10 +71,12 @@ type InvokeModelStreamResult struct {
 }
 
 type InvokeEmbeddingModelArgs struct {
-	ModelID         string             `json:"modelId"`
-	Values          []string           `json:"values"`
-	ProviderOptions ai.ProviderOptions `json:"providerOptions,omitempty"`
-	Headers         map[string]string  `json:"headers,omitempty"`
+	AgentID          string             `json:"agentId,omitempty"`
+	CompiledRevision string             `json:"compiledRevision,omitempty"`
+	ModelID          string             `json:"modelId"`
+	Values           []string           `json:"values"`
+	ProviderOptions  ai.ProviderOptions `json:"providerOptions,omitempty"`
+	Headers          map[string]string  `json:"headers,omitempty"`
 }
 
 type InvokeEmbeddingModelResult = ai.EmbeddingModelResult
@@ -90,15 +100,17 @@ type ToolDefinition struct {
 }
 
 type InvokeToolArgs struct {
-	ToolCallID   string              `json:"toolCallId"`
-	ToolName     string              `json:"toolName"`
-	Input        any                 `json:"input,omitempty"`
-	Messages     []Message           `json:"messages,omitempty"`
-	Context      any                 `json:"context,omitempty"`
-	ToolMetadata ai.ProviderMetadata `json:"toolMetadata,omitempty"`
-	Scope        updates.Scope       `json:"scope,omitempty"`
-	Artifacts    *ToolArtifactPolicy `json:"artifacts,omitempty"`
-	Approval     *ToolApprovalState  `json:"approval,omitempty"`
+	AgentID          string              `json:"agentId,omitempty"`
+	CompiledRevision string              `json:"compiledRevision,omitempty"`
+	ToolCallID       string              `json:"toolCallId"`
+	ToolName         string              `json:"toolName"`
+	Input            any                 `json:"input,omitempty"`
+	Messages         []Message           `json:"messages,omitempty"`
+	Context          any                 `json:"context,omitempty"`
+	ToolMetadata     ai.ProviderMetadata `json:"toolMetadata,omitempty"`
+	Scope            updates.Scope       `json:"scope,omitempty"`
+	Artifacts        *ToolArtifactPolicy `json:"artifacts,omitempty"`
+	Approval         *ToolApprovalState  `json:"approval,omitempty"`
 }
 
 type ToolApprovalState struct {

@@ -3,9 +3,9 @@ package temporalai
 import (
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -20,6 +20,8 @@ type ActivityOptions struct {
 	Record                 workflow.ActivityOptions
 	LanguageModelBoundary  activities.ToolExecutionBoundary
 	EmbeddingModelBoundary activities.ToolExecutionBoundary
+	AgentID                string
+	CompiledRevision       string
 }
 
 func defaultActivityOptions(summary string) workflow.ActivityOptions {
@@ -93,8 +95,10 @@ func InvokeModel(ctx workflow.Context, modelID string, options ai.LanguageModelC
 	}
 	var wireResult activities.InvokeModelResult
 	args := activities.InvokeModelArgs{
-		ModelID: modelID,
-		Options: activities.LanguageModelCallOptionsFromAI(options),
+		AgentID:          ao.AgentID,
+		CompiledRevision: ao.CompiledRevision,
+		ModelID:          modelID,
+		Options:          activities.LanguageModelCallOptionsFromAI(options),
 	}
 	var err error
 	if ao.LanguageModelBoundary == activities.ToolExecutionBoundaryLocalActivity {
@@ -118,8 +122,10 @@ func GenerateObject(ctx workflow.Context, modelID string, options ai.GenerateObj
 	}
 	var wireResult activities.GenerateObjectResult
 	args := activities.GenerateObjectArgs{
-		ModelID: modelID,
-		Options: activities.GenerateObjectOptionsFromAI(options),
+		AgentID:          ao.AgentID,
+		CompiledRevision: ao.CompiledRevision,
+		ModelID:          modelID,
+		Options:          activities.GenerateObjectOptionsFromAI(options),
 	}
 	var err error
 	if ao.LanguageModelBoundary == activities.ToolExecutionBoundaryLocalActivity {
@@ -144,8 +150,10 @@ func StreamObject(ctx workflow.Context, modelID string, options ai.StreamObjectO
 	ctx = workflow.WithActivityOptions(ctx, streamObjectActivityOptions(ao))
 	var wireResult activities.StreamObjectResult
 	err := workflow.ExecuteActivity(ctx, activities.StreamObjectActivity, activities.StreamObjectArgs{
-		ModelID: modelID,
-		Options: activities.StreamObjectOptionsFromAI(options),
+		AgentID:          ao.AgentID,
+		CompiledRevision: ao.CompiledRevision,
+		ModelID:          modelID,
+		Options:          activities.StreamObjectOptionsFromAI(options),
 	}).Get(ctx, &wireResult)
 	if err != nil {
 		return nil, err
@@ -162,8 +170,10 @@ func InvokeModelStream(ctx workflow.Context, modelID string, options ai.Language
 	ctx = workflow.WithActivityOptions(ctx, streamModelActivityOptions(ao))
 	var wireResult activities.InvokeModelStreamResult
 	err := workflow.ExecuteActivity(ctx, activities.InvokeModelStreamActivity, activities.InvokeModelStreamArgs{
-		ModelID: modelID,
-		Options: activities.LanguageModelCallOptionsFromAI(options),
+		AgentID:          ao.AgentID,
+		CompiledRevision: ao.CompiledRevision,
+		ModelID:          modelID,
+		Options:          activities.LanguageModelCallOptionsFromAI(options),
 	}).Get(ctx, &wireResult)
 	if err != nil {
 		return nil, err
@@ -179,10 +189,12 @@ func InvokeEmbeddingModel(ctx workflow.Context, modelID string, options ai.Embed
 	}
 	var result ai.EmbeddingModelResult
 	args := activities.InvokeEmbeddingModelArgs{
-		ModelID:         modelID,
-		Values:          options.Values,
-		ProviderOptions: options.ProviderOptions,
-		Headers:         options.Headers,
+		AgentID:          ao.AgentID,
+		CompiledRevision: ao.CompiledRevision,
+		ModelID:          modelID,
+		Values:           options.Values,
+		ProviderOptions:  options.ProviderOptions,
+		Headers:          options.Headers,
 	}
 	var err error
 	if ao.EmbeddingModelBoundary == activities.ToolExecutionBoundaryLocalActivity {
@@ -203,6 +215,12 @@ func InvokeTool(ctx workflow.Context, args activities.InvokeToolArgs, activityOp
 	if len(activityOptions) > 0 {
 		ao = activityOptions[0]
 	}
+	if args.AgentID == "" {
+		args.AgentID = ao.AgentID
+	}
+	if args.CompiledRevision == "" {
+		args.CompiledRevision = ao.CompiledRevision
+	}
 	ctx = workflow.WithActivityOptions(ctx, toolActivityOptions(ao))
 	var result activities.InvokeToolResult
 	err := workflow.ExecuteActivity(ctx, activities.InvokeToolActivity, args).Get(ctx, &result)
@@ -216,6 +234,12 @@ func InvokeToolLocal(ctx workflow.Context, args activities.InvokeToolArgs, activ
 	ao := ActivityOptions{}
 	if len(activityOptions) > 0 {
 		ao = activityOptions[0]
+	}
+	if args.AgentID == "" {
+		args.AgentID = ao.AgentID
+	}
+	if args.CompiledRevision == "" {
+		args.CompiledRevision = ao.CompiledRevision
 	}
 	ctx = workflow.WithLocalActivityOptions(ctx, localToolActivityOptions(ao))
 	var result activities.InvokeToolResult

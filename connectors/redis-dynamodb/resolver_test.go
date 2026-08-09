@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
 )
 
 func TestDynamoDBResolverReturnsTypedStreamNotFound(t *testing.T) {

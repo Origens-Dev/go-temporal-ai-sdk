@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/testsuite"
@@ -19,8 +19,8 @@ func TestInvokeModelWorkflowHelper(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, args activities.InvokeModelArgs) (*activities.InvokeModelResult, error) {
-			if args.ModelID != "model-1" {
-				t.Fatalf("model = %q", args.ModelID)
+			if args.AgentID != "agent-1" || args.CompiledRevision != "sha256:agent-1" || args.ModelID != "model-1" {
+				t.Fatalf("args = %#v", args)
 			}
 			return &activities.InvokeModelResult{
 				Content:      activities.PartsFromAI([]ai.Part{ai.TextPart{Text: "ok"}}),
@@ -101,8 +101,8 @@ func TestGenerateObjectWorkflowHelper(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, args activities.GenerateObjectArgs) (*activities.GenerateObjectResult, error) {
-			if args.ModelID != "model-1" {
-				t.Fatalf("model = %q", args.ModelID)
+			if args.AgentID != "agent-1" || args.CompiledRevision != "sha256:agent-1" || args.ModelID != "model-1" {
+				t.Fatalf("args = %#v", args)
 			}
 			if args.Options.SchemaName != "profile" {
 				t.Fatalf("schema name = %q", args.Options.SchemaName)
@@ -186,8 +186,8 @@ func TestStreamObjectWorkflowHelper(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, args activities.StreamObjectArgs) (*activities.StreamObjectResult, error) {
-			if args.ModelID != "model-1" {
-				t.Fatalf("model = %q", args.ModelID)
+			if args.AgentID != "agent-1" || args.CompiledRevision != "sha256:agent-1" || args.ModelID != "model-1" {
+				t.Fatalf("args = %#v", args)
 			}
 			if args.Options.Output != ai.OutputArray {
 				t.Fatalf("output = %q", args.Options.Output)
@@ -281,7 +281,7 @@ func TestWriteRecordAndEndStreamWorkflowHelpers(t *testing.T) {
 }
 
 func testInvokeModelWorkflow(ctx workflow.Context) (string, error) {
-	result, err := InvokeModel(ctx, "model-1", ai.LanguageModelCallOptions{})
+	result, err := InvokeModel(ctx, "model-1", ai.LanguageModelCallOptions{}, testRuntimeActivityOptions())
 	if err != nil {
 		return "", err
 	}
@@ -300,7 +300,7 @@ func testGenerateObjectWorkflow(ctx workflow.Context) (string, error) {
 	result, err := GenerateObject(ctx, "model-1", ai.GenerateObjectOptions{
 		SchemaName: "profile",
 		Schema:     map[string]any{"type": "object"},
-	})
+	}, testRuntimeActivityOptions())
 	if err != nil {
 		return "", err
 	}
@@ -326,7 +326,7 @@ func testStreamObjectWorkflow(ctx workflow.Context) (string, error) {
 			Output: ai.OutputArray,
 			Schema: map[string]any{"type": "object"},
 		},
-	})
+	}, testRuntimeActivityOptions())
 	if err != nil {
 		return "", err
 	}
@@ -349,4 +349,8 @@ func testInvokeModelLocalWorkflow(ctx workflow.Context) (string, error) {
 
 func activityRegisterOptions(name string) activity.RegisterOptions {
 	return activity.RegisterOptions{Name: name}
+}
+
+func testRuntimeActivityOptions() ActivityOptions {
+	return ActivityOptions{AgentID: "agent-1", CompiledRevision: "sha256:agent-1"}
 }

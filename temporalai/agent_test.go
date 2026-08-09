@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
@@ -54,6 +54,9 @@ func TestRunAgentExecutesToolActivityAndContinues(t *testing.T) {
 	var modelCalls int
 	env.RegisterActivityWithOptions(func(_ context.Context, args activities.InvokeModelArgs) (*activities.InvokeModelResult, error) {
 		modelCalls++
+		if args.AgentID != "agent-1" || args.CompiledRevision != "sha256:agent-1" {
+			t.Fatalf("model runtime scope = %#v", args)
+		}
 		if modelCalls == 1 {
 			return &activities.InvokeModelResult{Content: []activities.Part{{Type: "tool-call", ToolCallID: "call-1", ToolName: "lookup", Input: map[string]any{"query": "temporal"}}}, FinishReason: ai.FinishReason{Unified: ai.FinishToolCalls}}, nil
 		}
@@ -64,14 +67,14 @@ func TestRunAgentExecutesToolActivityAndContinues(t *testing.T) {
 		return &activities.InvokeModelResult{Content: []activities.Part{{Type: "text", Text: "Temporal result"}}, FinishReason: ai.FinishReason{Unified: ai.FinishStop}}, nil
 	}, activity.RegisterOptions{Name: activities.InvokeModelActivity})
 	env.RegisterActivityWithOptions(func(_ context.Context, args activities.InvokeToolArgs) (*activities.InvokeToolResult, error) {
-		if args.Scope.StepID != "step-0" || args.ToolName != "lookup" {
+		if args.AgentID != "agent-1" || args.CompiledRevision != "sha256:agent-1" || args.Scope.StepID != "step-0" || args.ToolName != "lookup" {
 			t.Fatalf("tool args = %#v", args)
 		}
 		return &activities.InvokeToolResult{ToolCallID: args.ToolCallID, ToolName: args.ToolName, Input: args.Input, Output: ai.ToolResultOutput{Type: "text", Value: "lookup output"}, Result: "lookup output"}, nil
 	}, activity.RegisterOptions{Name: activities.InvokeToolActivity})
 
 	env.ExecuteWorkflow(testAgentWorkflow, AgentInput{
-		AgentID: "agent-1", ModelID: "model-1", Prompt: "run lookup", ToolExecution: ToolExecutionSequential,
+		AgentID: "agent-1", CompiledRevision: "sha256:agent-1", ModelID: "model-1", Prompt: "run lookup", ToolExecution: ToolExecutionSequential,
 		Tools: []activities.ToolDefinition{{Name: "lookup", InputSchema: map[string]any{"type": "object"}}},
 	})
 	if err := env.GetWorkflowError(); err != nil {

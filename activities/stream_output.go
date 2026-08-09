@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 
-	"github.com/holbrookab/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-ai/packages/ai"
 )
 
 type partialOutputTracker struct {

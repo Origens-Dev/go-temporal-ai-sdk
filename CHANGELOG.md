@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.1 - 2026-08-09
+
+- Forked from `holbrookab/go-temporal-ai-sdk` `v0.4.0` at commit `5836767`
+  and moved the module and `go-ai` imports to the `Origens-Dev` organization.
+- Added agent-scoped worker runtime resolution keyed by `AgentID` and compiled
+  revision across language model, object, embedding, stream, and tool
+  activities. Resolver identity drift is a typed non-retryable Temporal error;
+  empty `AgentID` inputs retain the original static worker runtime.
+- Added the stable `go-temporal-ai-sdk.AgentWorkflow` root workflow wrapper.
+  It emits one completed, failed, or canceled protocol-v2 `stream-end` from a
+  disconnected context and prevents child subagents from closing the root
+  stream.
+- Made approval waits cancellation-aware and persist canceled interaction state
+  from a disconnected workflow context.
+- Updated the Go-compatible Temporal dependencies to SDK `v1.45.0` and API
+  `v1.62.12` without changing existing activity, signal, query, or `GetVersion`
+  names.
+- Added runtime mismatch, workflow terminal retry, cancellation, root/subagent
+  ownership, and compatibility coverage plus CI and release automation.
+
 ## 0.4.0 - 2026-07-10
 
 - Replaced the v1 `streaming` package with the clean-break protocol-v2

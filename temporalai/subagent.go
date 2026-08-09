@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	enumspb "go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
 )
@@ -259,7 +259,7 @@ func (m *subagentManager) spawn(ctx workflow.Context, call AgentToolCall, defini
 		ParentClosePolicy: definition.ParentClosePolicy,
 	}
 	childCtx = workflow.WithChildOptions(childCtx, options)
-	workflowType := any(AgentWorkflow)
+	workflowType := any(AgentWorkflowName)
 	if definition.WorkflowType != "" {
 		workflowType = definition.WorkflowType
 	}

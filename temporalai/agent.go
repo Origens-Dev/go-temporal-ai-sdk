@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/holbrookab/go-ai/packages/ai"
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 const (
 	defaultAgentMaxSteps = 20
+	AgentWorkflowName    = "go-temporal-ai-sdk.AgentWorkflow"
 
 	ToolExecutionParallel   = "parallel"
 	ToolExecutionSequential = "sequential"
@@ -28,6 +29,7 @@ type LocalToolTimeoutFallback string
 
 type AgentInput struct {
 	AgentID                  string                              `json:"agentId,omitempty"`
+	CompiledRevision         string                              `json:"compiledRevision,omitempty"`
 	ModelID                  string                              `json:"modelId"`
 	Instructions             string                              `json:"instructions,omitempty"`
 	Prompt                   string                              `json:"prompt,omitempty"`
@@ -89,8 +91,32 @@ type AgentToolCall struct {
 	AcceptedAttemptID string              `json:"acceptedAttemptId,omitempty"`
 }
 
+// AgentWorkflow is the stable root workflow entry point. It owns stream
+// termination for root executions only; child subagents report progress to the
+// parent but never close the shared root stream.
 func AgentWorkflow(ctx workflow.Context, input AgentInput) (*AgentResult, error) {
-	return RunAgent(ctx, input)
+	result, err := RunAgent(ctx, input)
+	if input.SubagentExecution != nil {
+		return result, err
+	}
+	streamID := updateStreamID(ctx, input)
+	if streamID == "" {
+		return result, err
+	}
+	outcome := updates.StreamOutcomeCompleted
+	errorText := ""
+	if err != nil {
+		outcome = updates.StreamOutcomeFailed
+		errorText = err.Error()
+		if temporal.IsCanceledError(err) || temporal.IsCanceledError(ctx.Err()) {
+			outcome = updates.StreamOutcomeCanceled
+		}
+	}
+	terminalCtx, _ := workflow.NewDisconnectedContext(ctx)
+	if terminalErr := EndStream(terminalCtx, streamID, outcome, errorText); terminalErr != nil && err == nil {
+		return result, terminalErr
+	}
+	return result, err
 }
 
 func workflowToolArtifactPolicy(ctx workflow.Context, policy activities.ToolArtifactPolicy) activities.ToolArtifactPolicy {
@@ -267,6 +293,7 @@ func ExecuteAgentChildWorkflow(ctx workflow.Context, workflowType any, input Age
 }
 
 func invokeAgentModel(ctx workflow.Context, input AgentInput, options activities.LanguageModelCallOptions, activityOptions ...ActivityOptions) (*activities.LanguageModelGenerateResult, error) {
+	activityOptions = agentActivityOptions(input, activityOptions...)
 	if input.UseStreamingModel || input.Stream.Visible {
 		streamResult, err := InvokeModelStream(ctx, input.ModelID, options.ToAI(), activityOptions...)
 		if err != nil {
@@ -379,15 +406,17 @@ func executeOneAgentTool(ctx workflow.Context, subagents *subagentManager, input
 
 func executeAgentToolFuture(ctx workflow.Context, input AgentInput, messages []activities.Message, call AgentToolCall, approval *activities.ToolApprovalState, options ActivityOptions) (workflow.Future, activities.ToolExecutionBoundary) {
 	args := activities.InvokeToolArgs{
-		ToolCallID:   call.ToolCallID,
-		ToolName:     call.ToolName,
-		Input:        call.Input,
-		Messages:     messages,
-		Context:      input.ToolContext,
-		ToolMetadata: call.ToolMetadata,
-		Scope:        agentToolScope(input, call),
-		Artifacts:    toolArtifactPolicyForActivity(input.ToolArtifacts),
-		Approval:     approval,
+		AgentID:          input.AgentID,
+		CompiledRevision: input.CompiledRevision,
+		ToolCallID:       call.ToolCallID,
+		ToolName:         call.ToolName,
+		Input:            call.Input,
+		Messages:         messages,
+		Context:          input.ToolContext,
+		ToolMetadata:     call.ToolMetadata,
+		Scope:            agentToolScope(input, call),
+		Artifacts:        toolArtifactPolicyForActivity(input.ToolArtifacts),
+		Approval:         approval,
 	}
 	boundary := toolExecutionBoundary(input, call.ToolName)
 	switch boundary {
@@ -404,15 +433,17 @@ func agentToolResultFromFuture(ctx workflow.Context, input AgentInput, messages 
 	if err := future.Get(ctx, &result); err != nil {
 		if shouldFallbackLocalToolTimeout(input, boundary, err) {
 			args := activities.InvokeToolArgs{
-				ToolCallID:   call.ToolCallID,
-				ToolName:     call.ToolName,
-				Input:        call.Input,
-				Messages:     messages,
-				Context:      input.ToolContext,
-				ToolMetadata: call.ToolMetadata,
-				Scope:        agentToolScope(input, call),
-				Artifacts:    toolArtifactPolicyForActivity(input.ToolArtifacts),
-				Approval:     approval,
+				AgentID:          input.AgentID,
+				CompiledRevision: input.CompiledRevision,
+				ToolCallID:       call.ToolCallID,
+				ToolName:         call.ToolName,
+				Input:            call.Input,
+				Messages:         messages,
+				Context:          input.ToolContext,
+				ToolMetadata:     call.ToolMetadata,
+				Scope:            agentToolScope(input, call),
+				Artifacts:        toolArtifactPolicyForActivity(input.ToolArtifacts),
+				Approval:         approval,
 			}
 			var fallbackResult activities.InvokeToolResult
 			if fallbackErr := executeAgentToolActivityFuture(ctx, args, options).Get(ctx, &fallbackResult); fallbackErr != nil {
@@ -512,6 +543,13 @@ func aoFromActivityOptions(activityOptions ...ActivityOptions) ActivityOptions {
 		return activityOptions[0]
 	}
 	return ActivityOptions{}
+}
+
+func agentActivityOptions(input AgentInput, activityOptions ...ActivityOptions) []ActivityOptions {
+	options := aoFromActivityOptions(activityOptions...)
+	options.AgentID = input.AgentID
+	options.CompiledRevision = input.CompiledRevision
+	return []ActivityOptions{options}
 }
 
 func toolExecutionBoundary(input AgentInput, toolName string) activities.ToolExecutionBoundary {

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-ai/packages/ai"
 )
 
 func TestFrozenEventFixturesRoundTrip(t *testing.T) {

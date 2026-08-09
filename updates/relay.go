@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/holbrookab/go-ai/packages/ai"
+	"github.com/Origens-Dev/go-ai/packages/ai"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/holbrookab/go-temporal-ai-sdk/updates"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/updates"
 )
 
 func TestConnectorImplementsV2Contract(t *testing.T) {

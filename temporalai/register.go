@@ -1,10 +1,15 @@
 package temporalai
 
 import (
-	"github.com/holbrookab/go-temporal-ai-sdk/activities"
+	"github.com/Origens-Dev/go-temporal-ai-sdk/activities"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
 )
+
+func RegisterAgentWorkflow(w worker.Worker) {
+	w.RegisterWorkflowWithOptions(AgentWorkflow, workflow.RegisterOptions{Name: AgentWorkflowName})
+}
 
 func RegisterActivities(w worker.Worker, acts *activities.Activities) {
 	w.RegisterActivityWithOptions(acts.InvokeModel, activity.RegisterOptions{Name: activities.InvokeModelActivity})
