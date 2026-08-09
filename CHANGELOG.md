@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added the product-neutral `connectors/hostreview` import path for public
+  framework integrations while retaining `connectors/origens` compatibility.
+
 - Made hosted provisional preview publication best-effort. A live-stream
   outage is reported through `OnPublicationFailure` without retrying an
   already completed provider call.
