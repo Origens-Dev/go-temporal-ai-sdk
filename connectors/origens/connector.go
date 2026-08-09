@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	DefaultSocketPath = "/run/origens/agent-review.sock"
+	DefaultSocketPath = "/run/gobeyond/host/host-report.sock"
 	IngestPath        = "/v1/agent-review/events"
 	Protocol          = "origens.agent-review/v1alpha1"
 	defaultTimeout    = 2 * time.Second

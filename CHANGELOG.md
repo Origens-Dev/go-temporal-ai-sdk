@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.3 - 2026-08-09
+
+- Use the existing slot-private host-report Unix socket for hosted agent-review
+  publication, avoiding a second sandbox mount while preserving the same
+  identity and credential boundary.
+
 ## 0.1.0-alpha.2 - 2026-08-09
 
 - Added fully resolved per-tool Temporal task queues and an agent-level model

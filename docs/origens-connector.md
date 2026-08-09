@@ -25,7 +25,7 @@ acts := activities.New(activities.Options{
 })
 ```
 
-The default socket is `/run/origens/agent-review.sock`. Hosted workers should
+The default socket is `/run/gobeyond/host/host-report.sock`. Hosted workers should
 not override it. Local development can provide `SocketPath` explicitly and run
 an HTTP handler on that Unix socket.
 
