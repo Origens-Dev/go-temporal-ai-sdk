@@ -148,4 +148,7 @@ func TestDefaultSocketUsesSlotPrivateHostReportMount(t *testing.T) {
 	if publisher.socketPath != "/run/gobeyond/host/host-report.sock" {
 		t.Fatalf("default socket = %q", publisher.socketPath)
 	}
+	if publisher.maxBytes != 64*1024 {
+		t.Fatalf("default max bytes = %d, want hosted broker limit", publisher.maxBytes)
+	}
 }

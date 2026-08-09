@@ -29,11 +29,15 @@ func TestAgentWorkflowEndsRootStreamOnce(t *testing.T) {
 		return nil
 	}, activity.RegisterOptions{Name: activities.EndStreamActivity})
 
-	env.ExecuteWorkflow(AgentWorkflow, AgentInput{ModelID: "model", Prompt: "run", Stream: updates.Options{StreamID: "stream-1"}})
+	env.ExecuteWorkflow(AgentWorkflow, AgentInput{
+		AgentID: "agent-1", ModelID: "model", Prompt: "run",
+		Stream: updates.Options{StreamID: "stream-1", ConversationID: "conversation-1"},
+	})
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)
 	}
-	if len(terminals) != 1 || terminals[0].Outcome != updates.StreamOutcomeCompleted {
+	if len(terminals) != 1 || terminals[0].Outcome != updates.StreamOutcomeCompleted ||
+		terminals[0].AgentID != "agent-1" || terminals[0].ConversationID != "conversation-1" {
 		t.Fatalf("terminals = %#v", terminals)
 	}
 }

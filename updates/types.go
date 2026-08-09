@@ -103,8 +103,11 @@ type BaseEvent struct {
 	// AgentID is the compiler-owned agent definition that produced this event.
 	// Connectors that cross a platform boundary can validate it against the
 	// deployment manifest bound to the worker slot.
-	AgentID    string `json:"agentId,omitempty"`
-	OccurredAt int64  `json:"occurredAt"`
+	AgentID string `json:"agentId,omitempty"`
+	// CompiledRevision selects the exact worker-local connector/runtime. It is
+	// operational routing metadata and is not a customer or tenant identity.
+	CompiledRevision string `json:"compiledRevision,omitempty"`
+	OccurredAt       int64  `json:"occurredAt"`
 }
 
 type PreviewRef struct {
