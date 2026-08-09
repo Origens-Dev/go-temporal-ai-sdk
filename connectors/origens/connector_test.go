@@ -133,3 +133,10 @@ func TestDirectPreviewPublicationStillReportsTransportFailure(t *testing.T) {
 		t.Fatalf("expected socket transport error, got %v", err)
 	}
 }
+
+func TestDefaultSocketUsesSlotPrivateHostReportMount(t *testing.T) {
+	publisher := NewPublisher("", 0, 0)
+	if publisher.socketPath != "/run/gobeyond/host/host-report.sock" {
+		t.Fatalf("default socket = %q", publisher.socketPath)
+	}
+}
