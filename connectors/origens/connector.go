@@ -23,7 +23,10 @@ const (
 	IngestPath        = "/v1/agent-review/events"
 	Protocol          = "origens.agent-review/v1alpha1"
 	defaultTimeout    = 2 * time.Second
-	defaultMaxBytes   = 1024 * 1024
+	// Keep the client envelope at the hosted broker's admission limit. A
+	// connector must reject locally before a committed update reaches a broker
+	// that can never accept it.
+	defaultMaxBytes = 64 * 1024
 )
 
 // DurableStore remains customer-owned (for example, a DynamoDB connector).
