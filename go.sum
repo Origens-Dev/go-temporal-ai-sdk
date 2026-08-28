@@ -1,5 +1,5 @@
-github.com/Origens-Dev/go-ai v0.1.0-alpha.1 h1:7U89FlDjIb/Z8QF7kgf0rcKB8nwwyRsM+YFm8JFmt5k=
-github.com/Origens-Dev/go-ai v0.1.0-alpha.1/go.mod h1:6pyzWSO1Kzvr/RPFfZCx28yOtwwXzhjN43RZAwniLq8=
+github.com/Origens-Dev/go-ai v0.1.0-alpha.2 h1:ecXlI27ZPhl9WyQcbpIYr4oV16u5Udn2HFhvMMPlDcc=
+github.com/Origens-Dev/go-ai v0.1.0-alpha.2/go.mod h1:6pyzWSO1Kzvr/RPFfZCx28yOtwwXzhjN43RZAwniLq8=
 github.com/aws/aws-sdk-go-v2 v1.41.7 h1:DWpAJt66FmnnaRIOT/8ASTucrvuDPZASqhhLey6tLY8=
 github.com/aws/aws-sdk-go-v2 v1.41.7/go.mod h1:4LAfZOPHNVNQEckOACQx60Y8pSRjIkNZQz1w92xpMJc=
 github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue v1.20.39 h1:Suq0L+BsHm+5QD9bOXTkMTYNqgwhevA2Ggo1ApRqukE=

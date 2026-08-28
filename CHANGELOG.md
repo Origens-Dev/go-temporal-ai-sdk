@@ -2,12 +2,25 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.9 - 2026-08-28
+
+- Bumped `github.com/Origens-Dev/go-ai` to `v0.1.0-alpha.2`, making the Gemini
+  Developer API provider available to Temporal AI SDK consumers without
+  changing workflow, replay, or protocol-v2 contracts.
+- Moved CI and release jobs to Blacksmith's Ubuntu 24.04 runners.
+
+## 0.1.0-alpha.8 - 2026-08-09
+
 - Added the product-neutral `connectors/hostreview` import path for public
   framework integrations while retaining `connectors/origens` compatibility.
+
+## 0.1.0-alpha.7 - 2026-08-09
 
 - Made hosted provisional preview publication best-effort. A live-stream
   outage is reported through `OnPublicationFailure` without retrying an
   already completed provider call.
+
+## 0.1.0-alpha.6 - 2026-08-09
 
 - Aligned the Origens connector's default event envelope with the hosted
   broker's 64 KiB admission bound so oversized review updates fail locally.
