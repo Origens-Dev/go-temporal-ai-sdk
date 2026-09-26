@@ -81,6 +81,10 @@ func TestRunAgentApprovalAllowsOrDeniesToolExecution(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var suite testsuite.WorkflowTestSuite
 			env := suite.NewTestWorkflowEnvironment()
+			inputHash, err := ToolApprovalInputHash(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			var toolCalls int
 			var toolApproval *activities.ToolApprovalState
 			env.RegisterActivityWithOptions(func(context.Context, activities.InvokeModelArgs) (*activities.InvokeModelResult, error) {
@@ -92,7 +96,7 @@ func TestRunAgentApprovalAllowsOrDeniesToolExecution(t *testing.T) {
 				return &activities.InvokeToolResult{ToolCallID: args.ToolCallID, ToolName: args.ToolName, Output: ai.ToolResultOutput{Type: "text", Value: "written"}}, nil
 			}, activity.RegisterOptions{Name: activities.InvokeToolActivity})
 			env.RegisterDelayedCallback(func() {
-				env.SignalWorkflow(ToolApprovalResponseSignalName("call-1:approval"), ToolApprovalResponse{ApprovalID: "call-1:approval", Approved: test.approved, Reason: "decision"})
+				env.SignalWorkflow(ToolApprovalResponseSignalName("call-1:approval"), ToolApprovalResponse{ApprovalID: "call-1:approval", ToolCallID: "call-1", InputHash: inputHash, Approved: test.approved, Reason: "decision"})
 			}, time.Millisecond)
 
 			env.ExecuteWorkflow(testAgentWorkflow, AgentInput{

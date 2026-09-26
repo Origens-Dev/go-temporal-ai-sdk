@@ -1,7 +1,11 @@
 package temporalai
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/Origens-Dev/go-ai/packages/ai"
@@ -13,7 +17,49 @@ import (
 
 const (
 	ToolApprovalSignalName = "go-temporal-ai-sdk.tool-approval-response"
+	ToolApprovalQueryName  = "go-temporal-ai-sdk.pending-tool-approval"
 )
+
+type toolApprovalSnapshotKey struct{}
+
+// ToolApprovalSnapshot is the in-flight interaction exposed by the stable
+// agent workflow query. It is nil when the workflow is not waiting for approval.
+type ToolApprovalSnapshot struct {
+	Pending  bool                  `json:"pending"`
+	Requests []ToolApprovalRequest `json:"requests,omitempty"`
+	// Request is retained as a compatibility projection for older dispatchers.
+	// New dispatchers must consume Requests so concurrent approvals are visible.
+	Request *ToolApprovalRequest `json:"request,omitempty"`
+}
+
+// InstallToolApprovalQuery registers the native workflow query used by HTTP
+// dispatchers to forward pending approvals into their ordered session events.
+func InstallToolApprovalQuery(ctx workflow.Context) (workflow.Context, error) {
+	snapshot := &toolApprovalSnapshotState{requests: map[string]ToolApprovalRequest{}}
+	if err := workflow.SetQueryHandler(ctx, ToolApprovalQueryName, func() (ToolApprovalSnapshot, error) {
+		ids := make([]string, 0, len(snapshot.requests))
+		for id := range snapshot.requests {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		result := ToolApprovalSnapshot{Pending: len(ids) > 0, Requests: make([]ToolApprovalRequest, 0, len(ids))}
+		for _, id := range ids {
+			result.Requests = append(result.Requests, snapshot.requests[id])
+		}
+		if len(result.Requests) > 0 {
+			first := result.Requests[0]
+			result.Request = &first
+		}
+		return result, nil
+	}); err != nil {
+		return nil, err
+	}
+	return workflow.WithValue(ctx, toolApprovalSnapshotKey{}, snapshot), nil
+}
+
+type toolApprovalSnapshotState struct {
+	requests map[string]ToolApprovalRequest
+}
 
 type AgentToolApprovalOptions struct {
 	SignalName string         `json:"signalName,omitempty"`
@@ -27,6 +73,7 @@ type ToolApprovalRequest struct {
 	ToolCallID   string              `json:"toolCallId"`
 	ToolName     string              `json:"toolName"`
 	Input        any                 `json:"input,omitempty"`
+	InputHash    string              `json:"inputHash"`
 	ToolMetadata ai.ProviderMetadata `json:"toolMetadata,omitempty"`
 	Metadata     map[string]any      `json:"metadata,omitempty"`
 	Timeout      time.Duration       `json:"timeout,omitempty"`
@@ -37,6 +84,7 @@ type ToolApprovalRequest struct {
 type ToolApprovalResponse struct {
 	ApprovalID string `json:"approvalId"`
 	ToolCallID string `json:"toolCallId,omitempty"`
+	InputHash  string `json:"inputHash,omitempty"`
 	Approved   bool   `json:"approved"`
 	Reason     string `json:"reason,omitempty"`
 	TimedOut   bool   `json:"timedOut,omitempty"`
@@ -56,6 +104,17 @@ func requestToolApproval(ctx workflow.Context, request ToolApprovalRequest, writ
 	}
 	if request.ToolName == "" {
 		return nil, fmt.Errorf("toolName is required")
+	}
+	if request.InputHash == "" {
+		inputHash, err := ToolApprovalInputHash(request.Input)
+		if err != nil {
+			return nil, err
+		}
+		request.InputHash = inputHash
+	}
+	if snapshot, ok := ctx.Value(toolApprovalSnapshotKey{}).(*toolApprovalSnapshotState); ok && snapshot != nil {
+		snapshot.requests[request.ApprovalID] = request
+		defer delete(snapshot.requests, request.ApprovalID)
 	}
 	if writeRecords && request.StreamID != "" {
 		if err := WriteRecord(ctx, request.StreamID, toolApprovalRecord(request, nil, 1), "", activityOptions...); err != nil {
@@ -108,6 +167,7 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 			return ToolApprovalResponse{
 				ApprovalID: request.ApprovalID,
 				ToolCallID: request.ToolCallID,
+				InputHash:  request.InputHash,
 				Approved:   false,
 				Reason:     "approval canceled",
 				Canceled:   true,
@@ -117,6 +177,7 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 			return ToolApprovalResponse{
 				ApprovalID: request.ApprovalID,
 				ToolCallID: request.ToolCallID,
+				InputHash:  request.InputHash,
 				Approved:   false,
 				Reason:     "approval timed out",
 				TimedOut:   true,
@@ -125,11 +186,22 @@ func waitForToolApprovalResponse(ctx workflow.Context, request ToolApprovalReque
 		if !received || response.ApprovalID != request.ApprovalID {
 			continue
 		}
-		if response.ToolCallID == "" {
-			response.ToolCallID = request.ToolCallID
+		if response.ToolCallID != request.ToolCallID || response.InputHash != request.InputHash {
+			continue
 		}
 		return response, nil
 	}
+}
+
+// ToolApprovalInputHash returns the stable SHA-256 digest that must accompany
+// a response to bind it to the exact pending tool input.
+func ToolApprovalInputHash(input any) (string, error) {
+	data, err := json.Marshal(input)
+	if err != nil {
+		return "", fmt.Errorf("encode tool approval input: %w", err)
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), nil
 }
 
 func ToolApprovalResponseSignalName(approvalID string) string {
@@ -169,6 +241,7 @@ func toolApprovalRecord(request ToolApprovalRequest, response *ToolApprovalRespo
 			"toolCallId": request.ToolCallID,
 			"toolName":   request.ToolName,
 			"input":      request.Input,
+			"inputHash":  request.InputHash,
 		},
 	}
 	if len(request.ToolMetadata) > 0 {

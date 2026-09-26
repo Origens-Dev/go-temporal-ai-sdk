@@ -338,14 +338,21 @@ func TestRunAgentDefaultVersionDoesNotScheduleDurableRecords(t *testing.T) {
 func TestRequestToolApprovalWritesInteractionRecords(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	inputHash, err := ToolApprovalInputHash(map[string]any{"query": "temporal"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	var records []updates.RecordUpsertEvent
 	env.RegisterActivityWithOptions(func(_ context.Context, args activities.WriteRecordArgs) error {
 		records = append(records, args.Event)
 		return nil
 	}, activity.RegisterOptions{Name: activities.WriteRecordActivity})
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(ToolApprovalResponseSignalName("approval-1"), ToolApprovalResponse{ApprovalID: "approval-1", ToolCallID: "call-1", Approved: true})
+		env.SignalWorkflow(ToolApprovalResponseSignalName("approval-1"), ToolApprovalResponse{ApprovalID: "approval-1", ToolCallID: "wrong-call", InputHash: inputHash, Approved: true})
 	}, time.Millisecond)
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(ToolApprovalResponseSignalName("approval-1"), ToolApprovalResponse{ApprovalID: "approval-1", ToolCallID: "call-1", InputHash: inputHash, Approved: true})
+	}, 2*time.Millisecond)
 	env.ExecuteWorkflow(testApprovalWorkflow)
 	if err := env.GetWorkflowError(); err != nil {
 		t.Fatal(err)
@@ -357,14 +364,52 @@ func TestRequestToolApprovalWritesInteractionRecords(t *testing.T) {
 	if !ok || len(questions) != 1 {
 		t.Fatalf("questions = %#v", records[0].Record.Data["questions"])
 	}
+	origin, ok := records[0].Record.Data["origin"].(map[string]any)
+	if !ok || origin["toolCallId"] != "call-1" || origin["inputHash"] != inputHash {
+		t.Fatalf("approval origin does not bind input: %#v", records[0].Record.Data["origin"])
+	}
+}
+
+func TestToolApprovalQueryKeepsConcurrentRequests(t *testing.T) {
+	var suite testsuite.WorkflowTestSuite
+	env := suite.NewTestWorkflowEnvironment()
+	env.RegisterDelayedCallback(func() {
+		value, err := env.QueryWorkflow(ToolApprovalQueryName)
+		if err != nil {
+			t.Errorf("query pending approvals: %v", err)
+			return
+		}
+		var snapshot ToolApprovalSnapshot
+		if err := value.Get(&snapshot); err != nil {
+			t.Errorf("decode pending approvals: %v", err)
+			return
+		}
+		if len(snapshot.Requests) != 2 || !snapshot.Pending {
+			t.Errorf("pending snapshot = %#v", snapshot)
+			return
+		}
+		for _, request := range snapshot.Requests {
+			env.SignalWorkflow(ToolApprovalResponseSignalName(request.ApprovalID), ToolApprovalResponse{
+				ApprovalID: request.ApprovalID, ToolCallID: request.ToolCallID, InputHash: request.InputHash, Approved: true,
+			})
+		}
+	}, time.Millisecond)
+	env.ExecuteWorkflow(testConcurrentApprovalsWorkflow)
+	if err := env.GetWorkflowError(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRequestToolApprovalDefaultVersionSkipsInteractionRecords(t *testing.T) {
 	var suite testsuite.WorkflowTestSuite
 	env := suite.NewTestWorkflowEnvironment()
+	inputHash, err := ToolApprovalInputHash(map[string]any{"query": "temporal"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	env.OnGetVersion(durableRecordsChange, workflow.DefaultVersion, 1).Return(workflow.DefaultVersion)
 	env.RegisterDelayedCallback(func() {
-		env.SignalWorkflow(ToolApprovalResponseSignalName("approval-1"), ToolApprovalResponse{ApprovalID: "approval-1", ToolCallID: "call-1", Approved: true})
+		env.SignalWorkflow(ToolApprovalResponseSignalName("approval-1"), ToolApprovalResponse{ApprovalID: "approval-1", ToolCallID: "call-1", InputHash: inputHash, Approved: true})
 	}, time.Millisecond)
 	env.ExecuteWorkflow(testApprovalWorkflow)
 	if err := env.GetWorkflowError(); err != nil {
@@ -391,5 +436,25 @@ func testApprovalWorkflow(ctx workflow.Context) error {
 	if !response.Approved {
 		return temporal.NewApplicationError("approval was not accepted", "test")
 	}
+	return nil
+}
+
+func testConcurrentApprovalsWorkflow(ctx workflow.Context) error {
+	ctx, err := InstallToolApprovalQuery(ctx)
+	if err != nil {
+		return err
+	}
+	group := workflow.NewWaitGroup(ctx)
+	group.Add(2)
+	for _, id := range []string{"approval-a", "approval-b"} {
+		id := id
+		workflow.Go(ctx, func(ctx workflow.Context) {
+			defer group.Done()
+			_, _ = RequestToolApproval(ctx, ToolApprovalRequest{
+				ApprovalID: id, ToolCallID: "call-" + id, ToolName: "rename", Input: map[string]any{"id": id},
+			})
+		})
+	}
+	group.Wait(ctx)
 	return nil
 }
