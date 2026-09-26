@@ -96,6 +96,11 @@ type AgentToolCall struct {
 // termination for root executions only; child subagents report progress to the
 // parent but never close the shared root stream.
 func AgentWorkflow(ctx workflow.Context, input AgentInput) (*AgentResult, error) {
+	var err error
+	ctx, err = InstallToolApprovalQuery(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("install tool approval query: %w", err)
+	}
 	result, err := RunAgent(ctx, input)
 	if input.SubagentExecution != nil {
 		return result, err
