@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.10 - 2026-09-26
+
+- Expose concurrent pending tool approvals in the workflow query so durable
+  voice sessions cannot overwrite or hide approval interactions.
+
 ## 0.1.0-alpha.9 - 2026-08-28
 
 - Bumped `github.com/Origens-Dev/go-ai` to `v0.1.0-alpha.2`, making the Gemini
